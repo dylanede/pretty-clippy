@@ -1,0 +1,54 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Main</title>
+        <style>
+         ,head,body {
+             padding: 0;
+             margin: 0;
+         }
+         body {
+             font-family: calibri, helvetica, arial, sans-serif;
+         }
+         div {
+             padding-bottom: 10px;
+         }
+        </style>
+        <script type="text/javascript" src="elm.js"/></script>
+    </head>
+    <body>
+        <script type="text/javascript">
+         function get(name) {
+             if(name=(new RegExp('[?&]'+encodeURIComponent(name)+'=([^&]*)')).exec(location.search))
+                 return decodeURIComponent(name[1]);
+         }
+         function httpGetAsync(theUrl, callback)
+         {
+             var xmlHttp = new XMLHttpRequest();
+             xmlHttp.onreadystatechange = function() {
+                 if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
+                     callback(xmlHttp.responseText);
+             }
+             xmlHttp.open("GET", theUrl, true); // true for asynchronous
+             xmlHttp.send(null);
+         }
+         var owner = get("o");
+         var repo = get("r");
+         var hash = get("h");
+         var url = "http://alloworigin.com/get?url=http://clippy.bashy.io/github/sha/"+owner+"/"+repo+"/"+hash+"/log";
+         var app = Elm.fullscreen(Elm.Main, { clippyLog: [""] });
+         httpGetAsync(url, function(text) {
+             var log = JSON.parse(text).contents;
+             var messages = log.slice(log.indexOf("{")).split("\n");
+             for (i = 0; i < messages.length; i++) {
+                 if(messages[i].charAt(0) != "{") {
+                     messages.splice(i);
+                     break;
+                 }
+             }
+             app.ports.clippyLog.send(messages);
+         });
+        </script>
+    </body>
+</html>
