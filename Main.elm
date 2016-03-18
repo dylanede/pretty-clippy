@@ -5,22 +5,12 @@ import Task
 import Effects exposing (Never)
 import Json.Decode as Json exposing ((:=))
 
-(:+:) : Json.Decoder (a -> b) -> Json.Decoder a -> Json.Decoder b
-(:+:) func value = Json.object2 (<|) func value
-
-nullOr : Json.Decoder a -> Json.Decoder (Maybe a)
-nullOr decoder =
-  Json.oneOf
-    [ Json.null Nothing
-    , Json.map Just decoder
-    ]
-
 app : StartApp.App (List Message)
 app = StartApp.start {
         init = ([], Effects.none),
         view = view,
         update = \a m -> (update a m, Effects.none),
-        inputs = [Signal.map (SetList) messages]
+        inputs = [Signal.map SetList messages]
       }
 
 main : Signal Html.Html
@@ -45,6 +35,16 @@ port clippyLog : Signal (List String)
 messages : Signal (List Message)
 messages = Signal.map (filterMap <| Result.toMaybe << Json.decodeString messageDecoder) clippyLog
 
+(:+:) : Json.Decoder (a -> b) -> Json.Decoder a -> Json.Decoder b
+(:+:) func value = Json.object2 (<|) func value
+
+nullOr : Json.Decoder a -> Json.Decoder (Maybe a)
+nullOr decoder =
+  Json.oneOf
+    [ Json.null Nothing
+    , Json.map Just decoder
+    ]
+
 type alias Span = {
     file_name: String,
     byte_start: Int,
@@ -54,16 +54,20 @@ type alias Span = {
     column_start: Int,
     column_end: Int
   }
+
 spanDecoder : Json.Decoder Span
-spanDecoder = Json.map Span
-              ("file_name" := Json.string) :+:
-              ("byte_start" := Json.int) :+:
-              ("byte_end" := Json.int) :+:
-              ("line_start" := Json.int) :+:
-              ("line_end" := Json.int) :+:
-              ("column_start" := Json.int) :+:
-              ("column_end" := Json.int)
+spanDecoder =
+  Json.map Span
+  ("file_name" := Json.string) :+:
+  ("byte_start" := Json.int) :+:
+  ("byte_end" := Json.int) :+:
+  ("line_start" := Json.int) :+:
+  ("line_end" := Json.int) :+:
+  ("column_start" := Json.int) :+:
+  ("column_end" := Json.int)
+
 type Message = Message MessageInner
+
 messageInner : Message -> MessageInner
 messageInner message =
   case message of
@@ -71,18 +75,21 @@ messageInner message =
 
 type alias MessageInner = {
     message: String,
-    code: Maybe Int,
+    code: Maybe String,
     level: String,
     spans: List Span,
     children: List Message
   }
+
 -- `andThen` shenanigans due to Elm bug #873
 messageDecoder : Json.Decoder Message
-messageDecoder = Json.succeed () `Json.andThen` (\_ -> Json.map Message
-                  (Json.map MessageInner
-                     ("message" := Json.string) :+:
-                     ("code" := nullOr Json.int) :+:
-                     ("level" := Json.string) :+:
-                     ("spans" := Json.list spanDecoder) :+:
-                     ("children" := Json.list messageDecoder)
-                  ))
+messageDecoder =
+  Json.succeed () `Json.andThen`
+  (\_ -> Json.map Message <|
+     Json.map MessageInner
+     ("message" := Json.string) :+:
+     ("code" := nullOr Json.string) :+:
+     ("level" := Json.string) :+:
+     ("spans" := Json.list spanDecoder) :+:
+     ("children" := Json.list messageDecoder)
+  )
